@@ -16,11 +16,6 @@ parameters:
     description: The password for the keystone admin account, used for monitoring, querying neutron etc.
     type: string
     hidden: true
-  AodhPassword:
-    default: unset
-    description: The password for the aodh services.
-    type: string
-    hidden: true
   CeilometerBackend:
     default: 'mongodb'
     description: The ceilometer backend type.
@@ -105,7 +100,7 @@ parameters:
     type: json
   KeyName:
     default: default
-    description: Name of an existing Nova key pair to enable SSH access to the instances
+    description: Name of an existing EC2 KeyPair to enable SSH access to the instances
     type: string
     constraints:
       - custom_constraint: nova.keypair
@@ -192,10 +187,10 @@ parameters:
       The default MTU for tenant networks. For VXLAN/GRE tunneling, this should
       be at least 50 bytes smaller than the MTU on the physical network. This
       value will be used to set the MTU on the virtual Ethernet device.
-      This value will be used to construct the NeutronDnsmasqOptions, since that
+      This number is related to the value of NeutronDnsmasqOptions, since that
       will determine the MTU that is assigned to the VM host through DHCP.
-    default: "1400"
-    type: string
+    default: 1400
+    type: number
   NeutronTunnelTypes:
     default: 'vxlan'
     description: |
@@ -287,11 +282,13 @@ parameters:
     type: string
     default: unset
     description: Salt for the rabbit cookie, change this to force the randomly generated rabbit cookie to change.
+  # FIXME: 'guest' is provisioned in RabbitMQ by default, we should create a user if these are changed
   RabbitUserName:
     default: guest
     description: The username for RabbitMQ
     type: string
   RabbitPassword:
+    default: guest
     description: The password for RabbitMQ
     type: string
     hidden: true
@@ -307,7 +304,7 @@ parameters:
     type: number
   # We need to set this as string because 'unlimited' is a valid setting
   RabbitFDLimit:
-    default: 16384
+    default: 65536
     description: Configures RabbitMQ FD limit
     type: string
   RabbitIPv6:
@@ -326,6 +323,10 @@ parameters:
     description: The user password for SNMPd with readonly rights running on all Overcloud nodes
     type: string
     hidden: true
+  TimeZone:
+    default: 'UTC'
+    description: The timezone to be set on nodes.
+    type: string
   StorageVirtualFixedIPs:
     default: []
     description: >
@@ -338,10 +339,6 @@ parameters:
         Control the IP allocation for the StorageMgmgVirtualInterface port. E.g.
         [{'ip_address':'1.2.3.4'}]
     type: json
-  TimeZone:
-    default: 'UTC'
-    description: The timezone to be set on nodes.
-    type: string
   CloudDomain:
     default: 'localdomain'
     type: string
@@ -493,7 +490,7 @@ parameters:
     type: string
     hidden: true
   HeatStackDomainAdminPassword:
-    description: Password for heat_stack_domain_admin user.
+    description: Password for heat_domain_admin user.
     type: string
     hidden: true
   InstanceNameTemplate:
@@ -600,10 +597,6 @@ parameters:
     type: number
     default: 3
     description: How many replicas to use in the swift rings.
-  SaharaPassword:
-    description: The password for the sahara service account.
-    type: string
-    hidden: true
 
 # Compute-specific params
   CeilometerComputeAgent:
@@ -680,7 +673,6 @@ parameters:
     default:
       NeutronTenantNetwork: tenant
       CeilometerApiNetwork: internal_api
-      AodhApiNetwork: internal_api
       MongoDbNetwork: internal_api
       CinderApiNetwork: internal_api
       CinderIscsiNetwork: storage
@@ -695,7 +687,6 @@ parameters:
       NovaVncProxyNetwork: internal_api
       SwiftMgmtNetwork: storage_mgmt
       SwiftProxyNetwork: storage
-      SaharaApiNetwork: internal_api
       HorizonNetwork: internal_api
       MemcachedNetwork: internal_api
       RabbitMqNetwork: internal_api
@@ -880,16 +871,15 @@ resources:
     properties:
       CloudName: {get_param: CloudName}
       CeilometerApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, CeilometerApiNetwork]}]}
-      AodhApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, AodhApiNetwork]}]}
       CinderApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, CinderApiNetwork]}]}
       GlanceApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, GlanceApiNetwork]}]}
+      GlanceRegistryVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, GlanceRegistryNetwork]}]}
       HeatApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, HeatApiNetwork]}]}
       KeystoneAdminApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, KeystoneAdminApiNetwork]}]}
       KeystonePublicApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, KeystonePublicApiNetwork]}]}
       MysqlVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, MysqlNetwork]}]}
       NeutronApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, NeutronApiNetwork]}]}
       NovaApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, NovaApiNetwork]}]}
-      SaharaApiVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, SaharaApiNetwork]}]}
       SwiftProxyVirtualIP: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, SwiftProxyNetwork]}]}
       PublicVirtualIP: {get_attr: [VipMap, net_ip_uri_map, external]}
 
@@ -904,7 +894,6 @@ resources:
         properties:
           AdminPassword: {get_param: AdminPassword}
           AdminToken: {get_param: AdminToken}
-          AodhPassword: {get_param: AodhPassword}
           CeilometerBackend: {get_param: CeilometerBackend}
           CeilometerMeteringSecret: {get_param: CeilometerMeteringSecret}
           CeilometerPassword: {get_param: CeilometerPassword}
@@ -1003,7 +992,6 @@ resources:
           RabbitFDLimit: {get_param: RabbitFDLimit}
           RabbitIPv6: {get_param: RabbitIPv6}
           RedisPassword: {get_param: RedisPassword}
-          SaharaPassword: {get_param: SaharaPassword}
           SnmpdReadonlyUserName: {get_param: SnmpdReadonlyUserName}
           SnmpdReadonlyUserPassword: {get_param: SnmpdReadonlyUserPassword}
           RedisVirtualIP: {get_attr: [RedisVirtualIP, ip_address]}
@@ -1020,7 +1008,6 @@ resources:
           ServiceNetMap: {get_param: ServiceNetMap}
           EndpointMap: {get_attr: [EndpointMap, endpoint_map]}
           CeilometerApiVirtualIP: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, CeilometerApiNetwork]}]}
-          AodhApiVirtualIP: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, AodhApiNetwork]}]}
           CinderApiVirtualIP: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, CinderApiNetwork]}]}
           HeatApiVirtualIP: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, HeatApiNetwork]}]}
           HeatApiVirtualIPUri: {get_attr: [VipMap, net_ip_uri_map, {get_param: [ServiceNetMap, HeatApiNetwork]}]}
@@ -1034,7 +1021,6 @@ resources:
           KeystonePublicApiVirtualIP: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, KeystonePublicApiNetwork]}]}
           NeutronApiVirtualIP: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, NeutronApiNetwork]}]}
           NovaApiVirtualIP: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, NovaApiNetwork]}]}
-          SaharaApiVirtualIP: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, SaharaApiNetwork]}]}
           UpdateIdentifier: {get_param: UpdateIdentifier}
           Hostname:
             str_replace:
@@ -1259,7 +1245,6 @@ resources:
       heat_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, HeatApiNetwork]}]}
       swift_proxy_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, SwiftProxyNetwork]}]}
       ceilometer_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, CeilometerApiNetwork]}]}
-      aodh_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, AodhApiNetwork]}]}
       nova_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, NovaApiNetwork]}]}
       nova_metadata_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, NovaMetadataNetwork]}]}
       glance_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, GlanceApiNetwork]}]}
@@ -1268,9 +1253,9 @@ resources:
       neutron_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, NeutronApiNetwork]}]}
       keystone_public_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, KeystonePublicApiNetwork]}]}
       keystone_admin_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, KeystoneAdminApiNetwork]}]}
-      sahara_api_node_ips: {get_attr: [ControllerIpListMap, net_ip_map, {get_param: [ServiceNetMap, SaharaApiNetwork]}]}
       DeployIdentifier: {get_param: DeployIdentifier}
       UpdateIdentifier: {get_param: UpdateIdentifier}
+
 
   MysqlRootPassword:
     type: OS::Heat::RandomString
@@ -1380,7 +1365,6 @@ resources:
         nova_api_vip: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, NovaApiNetwork]}]}
         nova_metadata_vip: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, NovaMetadataNetwork]}]}
         ceilometer_api_vip: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, CeilometerApiNetwork]}]}
-        aodh_api_vip: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, AodhApiNetwork]}]}
         heat_api_vip: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, HeatApiNetwork]}]}
         horizon_vip: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, HorizonNetwork]}]}
         redis_vip: {get_attr: [RedisVirtualIP, ip_address]}
@@ -1390,7 +1374,6 @@ resources:
         control_virtual_ip: {get_attr: [VipMap, net_ip_map, ctlplane]}
         public_virtual_ip: {get_attr: [VipMap, net_ip_map, external]}
         internal_api_virtual_ip: {get_attr: [VipMap, net_ip_map, internal_api]}
-        sahara_api_vip: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, SaharaApiNetwork]}]}
         storage_virtual_ip: {get_attr: [VipMap, net_ip_map, storage]}
         storage_mgmt_virtual_ip: {get_attr: [VipMap, net_ip_map, storage_mgmt]}
 
@@ -1663,9 +1646,6 @@ outputs:
   PublicVip:
     description: Controller VIP for public API endpoints
     value: {get_attr: [VipMap, net_ip_map, external]}
-  AodhInternalVip:
-    description: VIP for Aodh API internal endpoint
-    value: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, AodhApiNetwork]}]}
   CeilometerInternalVip:
     description: VIP for Ceilometer API internal endpoint
     value: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, CeilometerApiNetwork]}]}
@@ -1687,15 +1667,12 @@ outputs:
   NovaInternalVip:
     description: VIP for Nova API internal endpoint
     value: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, NovaApiNetwork]}]}
-  SaharaInternalVip:
-    description: VIP for Sahara API internal endpoint
-    value: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, SaharaApiNetwork]}]}
   SwiftInternalVip:
     description: VIP for Swift Proxy internal endpoint
     value: {get_attr: [VipMap, net_ip_map, {get_param: [ServiceNetMap, SwiftProxyNetwork]}]}
-  HostsEntry:
+  EndpointMap:
     description: |
-      The content that should be appended to your /etc/hosts if you want to get
-      hostname-based access to the deployed nodes (useful for testing without
-      setting up a DNS).
-    value: {get_attr: [allNodesConfig, hosts_entries]}
+      Mapping of the resources with the needed info for their endpoints.
+      This includes the protocol used, the IP, port and also a full
+      representation of the URI.
+    value: {get_attr: [EndpointMap, endpoint_map]}

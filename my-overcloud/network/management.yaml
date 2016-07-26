@@ -13,10 +13,10 @@ parameters:
   ManagementNetValueSpecs:
     default: {'provider:physical_network': 'management', 'provider:network_type': 'flat'}
     description: Value specs for the management network.
-    type: string
+    type: json 
   ManagementNetAdminStateUp:
     default: false
-    description: The admin state of the network.
+    description: This admin state of of the network.
     type: boolean
   ManagementNetEnableDHCP:
     default: false

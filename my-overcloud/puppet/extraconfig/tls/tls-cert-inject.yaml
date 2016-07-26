@@ -5,7 +5,7 @@ description: >
   for the load balancer using the given parameters.
 
 parameters:
-  # Can be overridden via parameter_defaults in the environment
+  # Can be overriden via parameter_defaults in the environment
   SSLCertificate:
     description: >
       The content of the SSL certificate (without Key) in PEM format.
@@ -21,7 +21,7 @@ parameters:
     type: string
     hidden: true
 
-  # Can be overridden by parameter_defaults if the user wants to try deploying
+  # Can be overriden by parameter_defaults if the user wants to try deploying
   # this in a distro that doesn't support this path.
   DeployedSSLCertificatePath:
     default: '/etc/pki/tls/private/overcloud_endpoint.pem'
@@ -63,6 +63,14 @@ resources:
         openssl rsa -noout -modulus -in ${cert_path} \
           | openssl md5 | cut -c 10- \
           > ${heat_outputs_path}.key_modulus
+        # We need to reload haproxy in case the certificate changed because
+        # puppet doesn't know the contents of the cert file.  The pacemaker
+        # case is handled separately in a pacemaker-specific resource.
+        pacemaker_status=$(systemctl is-active pacemaker)
+        haproxy_status=$(systemctl is-active haproxy)
+        if [ "$pacemaker_status" != "active" -a "$haproxy_status" = "active"]; then
+            systemctl reload haproxy
+        fi
 
   ControllerTLSDeployment:
     type: OS::Heat::SoftwareDeployment

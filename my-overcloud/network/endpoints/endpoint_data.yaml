@@ -1,15 +1,6 @@
 # Data in this file is used to generate the endpoint_map.yaml template.
 # Run the script build_endpoint_map.py to regenerate the file.
 
-Aodh:
-    Internal:
-        vip_param: AodhApi
-    Public:
-        vip_param: Public
-    Admin:
-        vip_param: AodhApi
-    port: 8042
-
 Ceilometer:
     Internal:
         vip_param: CeilometerApi
@@ -45,6 +36,15 @@ Glance:
     Admin:
         vip_param: GlanceApi
     port: 9292
+
+GlanceRegistry:
+    Internal:
+        vip_param: GlanceRegistry
+    Public:
+        vip_param: Public
+    Admin:
+        vip_param: GlanceRegistry
+    port: 9191
 
 Mysql:
     '':
@@ -91,24 +91,6 @@ Keystone:
         port: 35357
     port: 5000
 
-# TODO(ayoung): V3 is a temporary fix. Endpoints should be versionless.
-# Required for https://bugs.launchpad.net/puppet-nova/+bug/1542486
-KeystoneV3:
-    Internal:
-        vip_param: KeystonePublicApi
-        uri_suffixes:
-            '': /v3
-    Public:
-        vip_param: Public
-        uri_suffixes:
-            '': /v3
-    Admin:
-        vip_param: KeystoneAdminApi
-        uri_suffixes:
-            '': /v3
-        port: 35357
-    port: 5000
-
 Neutron:
     Internal:
         vip_param: NeutronApi
@@ -123,17 +105,14 @@ Nova:
         vip_param: NovaApi
         uri_suffixes:
             '': /v2.1/%(tenant_id)s
-            V3: /v3
     Public:
         vip_param: Public
         uri_suffixes:
             '': /v2.1/%(tenant_id)s
-            V3: /v3
     Admin:
         vip_param: NovaApi
         uri_suffixes:
             '': /v2.1/%(tenant_id)s
-            V3: /v3
     port: 8774
 
 NovaEC2:
@@ -177,18 +156,3 @@ Swift:
             '':
             S3:
     port: 8080
-
-Sahara:
-    Internal:
-        vip_param: SaharaApi
-        uri_suffixes:
-            '': /v1.1/%(tenant_id)s
-    Public:
-        vip_param: SaharaApi
-        uri_suffixes:
-            '': /v1.1/%(tenant_id)s
-    Admin:
-        vip_param: SaharaApi
-        uri_suffixes:
-            '': /v1.1/%(tenant_id)s
-    port: 8386
